@@ -62,7 +62,6 @@
     <div class="input-container">
         <h2>Create Invoice</h2>
         
-        <!-- Package Selector -->
         <div class="form-group">
             <label>Select Package:</label>
             <select id="pkgType" onchange="toggleFields()">
@@ -81,7 +80,6 @@
             <input type="text" id="cName" placeholder="Enter customer name">
         </div>
         
-        <!-- Common Route Fields -->
         <div class="form-group">
             <label>Pickup Location:</label>
             <input type="text" id="startLoc" placeholder="From where?">
@@ -91,7 +89,6 @@
             <input type="text" id="endLoc" placeholder="To where?">
         </div>
 
-        <!-- Dynamic Fields based on Package -->
         <div class="form-group" id="distGroup">
             <label>Total Distance (KM):</label>
             <input type="number" id="distance" placeholder="ex: 18">
@@ -111,7 +108,6 @@
         <button class="btn-download" id="downloadBtn" onclick="downloadReceipt()">Download as Image</button>
     </div>
 
-    <!-- RECEIPT PREVIEW -->
     <div id="receipt-area">
         <div class="header">
             <h1>PRIME CITY DRIVERS</h1>
@@ -153,8 +149,7 @@
                 </tr>
             </thead>
             <tbody id="pricingBody">
-                <!-- Items will be inserted here -->
-            </tbody>
+                </tbody>
         </table>
 
         <div class="total-section">
@@ -169,14 +164,12 @@
     </div>
 
     <script>
-        // Toggle input fields based on package selection
         function toggleFields() {
             const pkg = document.getElementById('pkgType').value;
             const distGroup = document.getElementById('distGroup');
             const hoursGroup = document.getElementById('hoursGroup');
             const priceGroup = document.getElementById('customPriceGroup');
 
-            // Reset visibility
             distGroup.style.display = 'none';
             hoursGroup.style.display = 'none';
             priceGroup.style.display = 'none';
@@ -186,29 +179,26 @@
             } else if (pkg === 'hourly') {
                 hoursGroup.style.display = 'block';
             } else if (pkg === 'fullday') {
-                hoursGroup.style.display = 'block'; // Or custom price
-                distGroup.style.display = 'block'; // Optional if km limit exists
+                hoursGroup.style.display = 'block';
+                distGroup.style.display = 'block';
             } else if (pkg === 'outstation') {
                 distGroup.style.display = 'block';
-                priceGroup.style.display = 'block'; // Usually fixed price
+                priceGroup.style.display = 'block';
             }
         }
 
         function generateBill() {
-            // Get Values
             const pkg = document.getElementById('pkgType').value;
             const driver = document.getElementById('driverName').value;
             const name = document.getElementById('cName').value;
             const start = document.getElementById('startLoc').value;
             const end = document.getElementById('endLoc').value;
             
-            // Validation
             if(!driver || !name) {
                 alert("Please fill Driver and Customer names!");
                 return;
             }
 
-            // Set Common Details
             const today = new Date();
             document.getElementById('billDate').innerText = today.toISOString().split('T')[0];
             document.getElementById('billNo').innerText = Math.floor(1000 + Math.random() * 9000);
@@ -220,9 +210,6 @@
             let pricingHtml = '';
             let pkgName = '';
 
-            // --- LOGIC PER PACKAGE ---
-
-            // 1. ON-DEMAND (First 10km 1750, then 100/km)
             if (pkg === 'ondemand') {
                 pkgName = "On-Demand Trip";
                 const km = parseFloat(document.getElementById('distance').value) || 0;
@@ -244,60 +231,52 @@
                 pricingHtml += `<tr><td>Total Distance</td><td>${km} km</td></tr>`;
             }
 
-            // 2. HOURLY (Based on hours entered)
             else if (pkg === 'hourly') {
                 pkgName = "Hourly Package";
                 const hrs = parseFloat(document.getElementById('hours').value) || 0;
                 
-                // Simple logic: 2hrs=3000, 3hrs=3700, 4hrs=4500
-                // For simplicity, let's allow manual input or basic calculation
-                // Let's assume standard 1500 per hour roughly, or fixed tiers
-                
                 let rate = 0;
-                if(hrs <= 2) rate = 3000;
-                else if(hrs <= 3) rate = 3700;
-                else if(hrs <= 4) rate = 4500;
-                else rate = 4500 + ((hrs-4)*1000); // Example extra hour rate
+                if (hrs < 2) {
+                    rate = 2500;
+                } else if (hrs >= 2 && hrs < 3) {
+                    rate = 3000;
+                } else if (hrs >= 3 && hrs < 4) {
+                    rate = 3700;
+                } else if (hrs >= 4 && hrs <= 6) {
+                    rate = 4500;
+                } else {
+                    // පැය 6 ට වැඩි නම් අමතර පැයකට 1000 බැගින්
+                    rate = 4500 + (Math.ceil(hrs - 6) * 1000);
+                }
 
                 total = rate;
                 pricingHtml += `<tr><td>Hourly Service (${hrs} Hours)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
             }
 
-            // 3. FULL DAY (Fixed rates)
             else if (pkg === 'fullday') {
                 pkgName = "Full Day Service";
                 const hrs = parseFloat(document.getElementById('hours').value) || 0;
-                
                 let rate = 0;
                 if(hrs <= 6) rate = 3500;
                 else if(hrs <= 8) rate = 4000;
-                else rate = 4500; // 12 hours
-
+                else rate = 4500;
                 total = rate;
                 pricingHtml += `<tr><td>Full Day Charge (${hrs} Hours)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
             }
 
-            // 4. OUTSTATION (Manual Price or KM based)
             else if (pkg === 'outstation') {
                 pkgName = "Outstation / Drop";
                 const km = parseFloat(document.getElementById('distance').value) || 0;
                 const price = parseFloat(document.getElementById('customPrice').value) || 0;
-
-                // Usually outstation is agreed price or km based
-                // Here we take manual price for flexibility
                 if(price > 0) {
                     total = price;
                     pricingHtml += `<tr><td>Agreed Trip Fare</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
                 } else {
-                    // Fallback to km calculation (e.g. 150 per km)
                     total = km * 150; 
                     pricingHtml += `<tr><td>Distance Charge (${km} km)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
                 }
-                
-                if(km > 0) pricingHtml += `<tr><td>Total Distance</td><td>${km} km</td></tr>`;
             }
 
-            // Update UI
             document.getElementById('billPkg').innerText = pkgName;
             document.getElementById('pricingBody').innerHTML = pricingHtml;
             document.getElementById('finalTotal').innerText = total.toLocaleString('en-US', {minimumFractionDigits: 2});
