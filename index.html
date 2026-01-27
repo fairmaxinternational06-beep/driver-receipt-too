@@ -28,10 +28,10 @@
         .input-container h2 { text-align: center; color: #333; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; }
         button:hover { background-color: #0056b3; }
-        .btn-download { background-color: #28a745; display: none; }
+        .btn-download { background-color: #28a745; display: none; margin-top: 10px; }
         .btn-download:hover { background-color: #218838; }
 
         #receipt-area {
@@ -42,10 +42,10 @@
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
             color: #333;
             display: none;
-            border-top: 5px solid #007bff;
+            border-top: 5px solid #d4af37; /* Gold color branding */
         }
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #ddd; padding-bottom: 10px; }
-        .header h1 { margin: 0; font-size: 24px; color: #007bff; text-transform: uppercase; }
+        .header h1 { margin: 0; font-size: 24px; color: #d4af37; text-transform: uppercase; }
         .header p { margin: 5px 0; font-size: 12px; color: #666; }
         .details { margin-bottom: 20px; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
@@ -61,6 +61,18 @@
 
     <div class="input-container">
         <h2>Create Invoice</h2>
+        
+        <!-- Package Selector -->
+        <div class="form-group">
+            <label>Select Package:</label>
+            <select id="pkgType" onchange="toggleFields()">
+                <option value="ondemand">On-Demand Trip (Base 10km)</option>
+                <option value="hourly">Hourly Package</option>
+                <option value="fullday">Full Day Driver</option>
+                <option value="outstation">Outstation / Drops</option>
+            </select>
+        </div>
+
         <div class="form-group">
             <label>Driver Name:</label> <input type="text" id="driverName" placeholder="Enter driver's name">
         </div>
@@ -68,6 +80,8 @@
             <label>Customer Name:</label>
             <input type="text" id="cName" placeholder="Enter customer name">
         </div>
+        
+        <!-- Common Route Fields -->
         <div class="form-group">
             <label>Pickup Location:</label>
             <input type="text" id="startLoc" placeholder="From where?">
@@ -76,25 +90,47 @@
             <label>Drop Location:</label>
             <input type="text" id="endLoc" placeholder="To where?">
         </div>
-        <div class="form-group">
+
+        <!-- Dynamic Fields based on Package -->
+        <div class="form-group" id="distGroup">
             <label>Total Distance (KM):</label>
             <input type="number" id="distance" placeholder="ex: 18">
         </div>
+        
+        <div class="form-group" id="hoursGroup" style="display:none;">
+            <label>Total Hours:</label>
+            <input type="number" id="hours" placeholder="ex: 4">
+        </div>
+
+        <div class="form-group" id="customPriceGroup" style="display:none;">
+            <label>Agreed Price (LKR):</label>
+            <input type="number" id="customPrice" placeholder="Enter final amount">
+        </div>
+
         <button onclick="generateBill()">Generate Receipt</button>
         <button class="btn-download" id="downloadBtn" onclick="downloadReceipt()">Download as Image</button>
     </div>
 
+    <!-- RECEIPT PREVIEW -->
     <div id="receipt-area">
         <div class="header">
             <h1>PRIME CITY DRIVERS</h1>
             <p>www.primecitydrivers.com</p>
-            <p>Transportation Services</p>
+            <p>Luxury Transport Services</p>
         </div>
 
         <div class="details">
             <div class="row">
                 <span class="label">Date:</span>
                 <span id="billDate"></span>
+            </div>
+            <div class="row">
+                <span class="label">Receipt No:</span>
+                <span id="billNo"></span>
+            </div>
+            <div class="row">
+                <span class="label">Package:</span>
+                <span id="billPkg" style="text-transform: uppercase; color: #d4af37; font-weight:bold;"></span>
             </div>
             <div class="row">
                 <span class="label">Driver:</span> <span id="billDriver"></span>
@@ -107,10 +143,6 @@
                 <span class="label">Route:</span>
                 <span id="billRoute" style="text-align: right; max-width: 60%;"></span>
             </div>
-            <div class="row">
-                <span class="label">Total Distance:</span>
-                <span id="billDistance"></span>
-            </div>
         </div>
 
         <table class="pricing-table">
@@ -121,7 +153,8 @@
                 </tr>
             </thead>
             <tbody id="pricingBody">
-                </tbody>
+                <!-- Items will be inserted here -->
+            </tbody>
         </table>
 
         <div class="total-section">
@@ -131,49 +164,141 @@
 
         <div class="footer">
             <p>Thank you for riding with Prime City Drivers!</p>
-            <p>Safe & Reliable Journey.</p>
+            <p>Hotline: 074 361 5411</p>
         </div>
     </div>
 
     <script>
+        // Toggle input fields based on package selection
+        function toggleFields() {
+            const pkg = document.getElementById('pkgType').value;
+            const distGroup = document.getElementById('distGroup');
+            const hoursGroup = document.getElementById('hoursGroup');
+            const priceGroup = document.getElementById('customPriceGroup');
+
+            // Reset visibility
+            distGroup.style.display = 'none';
+            hoursGroup.style.display = 'none';
+            priceGroup.style.display = 'none';
+
+            if (pkg === 'ondemand') {
+                distGroup.style.display = 'block';
+            } else if (pkg === 'hourly') {
+                hoursGroup.style.display = 'block';
+            } else if (pkg === 'fullday') {
+                hoursGroup.style.display = 'block'; // Or custom price
+                distGroup.style.display = 'block'; // Optional if km limit exists
+            } else if (pkg === 'outstation') {
+                distGroup.style.display = 'block';
+                priceGroup.style.display = 'block'; // Usually fixed price
+            }
+        }
+
         function generateBill() {
-            const driver = document.getElementById('driverName').value; // Get driver name
+            // Get Values
+            const pkg = document.getElementById('pkgType').value;
+            const driver = document.getElementById('driverName').value;
             const name = document.getElementById('cName').value;
             const start = document.getElementById('startLoc').value;
             const end = document.getElementById('endLoc').value;
-            const km = parseFloat(document.getElementById('distance').value);
-
-            if(!name || !start || !end || !km || !driver) {
-                alert("Please fill all details including Driver Name!");
+            
+            // Validation
+            if(!driver || !name) {
+                alert("Please fill Driver and Customer names!");
                 return;
             }
 
-            let baseRate = 1750;
-            let extraRate = 100;
-            let total = 0;
-            let pricingHtml = '';
-
+            // Set Common Details
             const today = new Date();
             document.getElementById('billDate').innerText = today.toISOString().split('T')[0];
-
-            document.getElementById('billDriver').innerText = driver; // Set driver name
+            document.getElementById('billNo').innerText = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('billDriver').innerText = driver;
             document.getElementById('billName').innerText = name;
-            document.getElementById('billRoute').innerText = `${start} to ${end}`;
-            document.getElementById('billDistance').innerText = km + " km";
+            document.getElementById('billRoute').innerText = (start && end) ? `${start} to ${end}` : "Local Trip";
+            
+            let total = 0;
+            let pricingHtml = '';
+            let pkgName = '';
 
-            if (km <= 10) {
-                total = baseRate;
-                pricingHtml += `<tr><td>Base Fare (First 10km)</td><td>1,750.00</td></tr>`;
-            } else {
-                let extraKm = km - 10;
-                let extraCost = extraKm * extraRate;
-                total = baseRate + extraCost;
-                pricingHtml += `
-                    <tr><td>Base Fare (First 10km)</td><td>1,750.00</td></tr>
-                    <tr><td>Extra ${extraKm} km (x 100)</td><td>${extraCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>
-                `;
+            // --- LOGIC PER PACKAGE ---
+
+            // 1. ON-DEMAND (First 10km 1750, then 100/km)
+            if (pkg === 'ondemand') {
+                pkgName = "On-Demand Trip";
+                const km = parseFloat(document.getElementById('distance').value) || 0;
+                let baseRate = 1750;
+                let extraRate = 100;
+
+                if (km <= 10) {
+                    total = baseRate;
+                    pricingHtml += `<tr><td>Base Fare (First 10km)</td><td>1,750.00</td></tr>`;
+                } else {
+                    let extraKm = km - 10;
+                    let extraCost = extraKm * extraRate;
+                    total = baseRate + extraCost;
+                    pricingHtml += `
+                        <tr><td>Base Fare (First 10km)</td><td>1,750.00</td></tr>
+                        <tr><td>Extra ${extraKm} km (x 100)</td><td>${extraCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>
+                    `;
+                }
+                pricingHtml += `<tr><td>Total Distance</td><td>${km} km</td></tr>`;
             }
 
+            // 2. HOURLY (Based on hours entered)
+            else if (pkg === 'hourly') {
+                pkgName = "Hourly Package";
+                const hrs = parseFloat(document.getElementById('hours').value) || 0;
+                
+                // Simple logic: 2hrs=3000, 3hrs=3700, 4hrs=4500
+                // For simplicity, let's allow manual input or basic calculation
+                // Let's assume standard 1500 per hour roughly, or fixed tiers
+                
+                let rate = 0;
+                if(hrs <= 2) rate = 3000;
+                else if(hrs <= 3) rate = 3700;
+                else if(hrs <= 4) rate = 4500;
+                else rate = 4500 + ((hrs-4)*1000); // Example extra hour rate
+
+                total = rate;
+                pricingHtml += `<tr><td>Hourly Service (${hrs} Hours)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
+            }
+
+            // 3. FULL DAY (Fixed rates)
+            else if (pkg === 'fullday') {
+                pkgName = "Full Day Service";
+                const hrs = parseFloat(document.getElementById('hours').value) || 0;
+                
+                let rate = 0;
+                if(hrs <= 6) rate = 3500;
+                else if(hrs <= 8) rate = 4000;
+                else rate = 4500; // 12 hours
+
+                total = rate;
+                pricingHtml += `<tr><td>Full Day Charge (${hrs} Hours)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
+            }
+
+            // 4. OUTSTATION (Manual Price or KM based)
+            else if (pkg === 'outstation') {
+                pkgName = "Outstation / Drop";
+                const km = parseFloat(document.getElementById('distance').value) || 0;
+                const price = parseFloat(document.getElementById('customPrice').value) || 0;
+
+                // Usually outstation is agreed price or km based
+                // Here we take manual price for flexibility
+                if(price > 0) {
+                    total = price;
+                    pricingHtml += `<tr><td>Agreed Trip Fare</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
+                } else {
+                    // Fallback to km calculation (e.g. 150 per km)
+                    total = km * 150; 
+                    pricingHtml += `<tr><td>Distance Charge (${km} km)</td><td>${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td></tr>`;
+                }
+                
+                if(km > 0) pricingHtml += `<tr><td>Total Distance</td><td>${km} km</td></tr>`;
+            }
+
+            // Update UI
+            document.getElementById('billPkg').innerText = pkgName;
             document.getElementById('pricingBody').innerHTML = pricingHtml;
             document.getElementById('finalTotal').innerText = total.toLocaleString('en-US', {minimumFractionDigits: 2});
 
@@ -185,7 +310,7 @@
             const receipt = document.getElementById("receipt-area");
             html2canvas(receipt).then(canvas => {
                 const link = document.createElement("a");
-                link.download = "PrimeCityDrivers_Invoice.png";
+                link.download = "PrimeCity_Invoice.png";
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             });
